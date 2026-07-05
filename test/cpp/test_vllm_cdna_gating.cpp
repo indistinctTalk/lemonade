@@ -5,6 +5,7 @@
 #include "lemon/system_info.h"
 
 using lemon::SystemInfo;
+using lemon::backends::device_class_launch_policy;
 using lemon::backends::is_discrete_hbm_arch;
 
 namespace {
@@ -57,6 +58,21 @@ int main() {
            "vllm RDNA families use the default pin (no override)");
     expect(SystemInfo::vllm_rocm_version_override("gfx1151").empty(),
            "vllm gfx1151 uses the default pin (no override)");
+
+    // Device-class launch policy — the discrete-HBM vs conservative-default wiring
+    // that VLLMServer::load() applies (extracted so it is unit-testable off-GPU).
+    auto apu = device_class_launch_policy("gfx1151", false);
+    expect(apu.enforce_eager && apu.cap_kv_cache && apu.force_awq_kernel,
+           "gfx1151 (Strix Halo APU) keeps conservative defaults: eager + kv-cap + awq-force");
+    auto cdna = device_class_launch_policy("gfx942", false);
+    expect(!cdna.enforce_eager && !cdna.cap_kv_cache && !cdna.force_awq_kernel,
+           "gfx942 (MI300X) gets vLLM-native budgeting: no eager, no kv-cap, no awq-force");
+    auto cdna_budget = device_class_launch_policy("gfx942", true);
+    expect(!cdna_budget.cap_kv_cache,
+           "explicit user memory budget suppresses the kv-cap on discrete-HBM");
+    auto rdna_dgpu = device_class_launch_policy("gfx1100", false);
+    expect(rdna_dgpu.enforce_eager && rdna_dgpu.cap_kv_cache && rdna_dgpu.force_awq_kernel,
+           "gfx1100 (consumer dGPU) keeps conservative defaults");
 
     if (failures != 0) {
         std::cout << failures << " assertion(s) failed" << std::endl;

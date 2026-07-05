@@ -354,8 +354,9 @@ void VLLMServer::load(const std::string& model_name,
     // Keep eager execution for consumer GPU inference; leave dtype selection to vLLM.
     // Discrete-HBM datacenter GPUs (AMD Instinct) skip it so vLLM captures CUDA
     // graphs — eager costs decode throughput there for no stability benefit.
-    const bool discrete_hbm = is_discrete_hbm_arch(SystemInfo::get_rocm_arch());
-    if (!discrete_hbm) {
+    const DeviceClassLaunchPolicy launch_policy = device_class_launch_policy(
+        SystemInfo::get_rocm_arch(), resolved_vllm_args.has_memory_budget_arg);
+    if (launch_policy.enforce_eager) {
         args.push_back("--enforce-eager");
     }
     // Pass ctx_size through to vllm-server's --max-model-len. Trust the
@@ -370,7 +371,7 @@ void VLLMServer::load(const std::string& model_name,
     // For AWQ specifically we force the 'awq' kernel because vLLM's default
     // awq_marlin is very slow on consumer GPUs (2 tok/s -> 12 tok/s).
     std::string quant_method = detect_quant_method(model_id);
-    if (quant_method == "awq" && !discrete_hbm) {
+    if (quant_method == "awq" && launch_policy.force_awq_kernel) {
         if (!resolved_vllm_args.has_quantization_arg) {
             LOG(DEBUG, "vLLM") << "Detected AWQ; forcing --quantization awq" << std::endl;
             args.push_back("--quantization");
@@ -401,7 +402,7 @@ void VLLMServer::load(const std::string& model_name,
     // Avoid vLLM's default gpu_memory_utilization=0.92 on shared-memory systems.
     // Keep this overridable through vllm_args for users that want another limit.
     // Discrete-HBM GPUs get vLLM's native budgeting instead of a fixed cap.
-    if (!discrete_hbm && !resolved_vllm_args.has_memory_budget_arg) {
+    if (launch_policy.cap_kv_cache) {
         args.push_back("--kv-cache-memory-bytes");
         args.push_back("4G");
     }

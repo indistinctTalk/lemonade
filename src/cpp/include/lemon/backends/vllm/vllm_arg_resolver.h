@@ -28,5 +28,17 @@ VLLMArgResolution resolve_vllm_args(const std::string& model_name,
 // hardware/backend-aware memory planner replaces.
 bool is_discrete_hbm_arch(const std::string& arch);
 
+// The launch-flag decisions VLLMServer::load() derives from the GPU device class.
+// Extracted so the discrete-HBM vs conservative-default wiring is unit-testable
+// without building the full args vector or launching the vllm-server subprocess.
+struct DeviceClassLaunchPolicy {
+    bool enforce_eager;     // push --enforce-eager (disables CUDA-graph capture)
+    bool force_awq_kernel;  // force the 'awq' kernel (+ float16) for AWQ models
+    bool cap_kv_cache;      // push the fixed --kv-cache-memory-bytes cap
+};
+
+DeviceClassLaunchPolicy device_class_launch_policy(const std::string& arch,
+                                                   bool has_memory_budget_arg);
+
 } // namespace backends
 } // namespace lemon

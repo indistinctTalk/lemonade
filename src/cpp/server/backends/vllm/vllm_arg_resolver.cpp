@@ -310,5 +310,15 @@ bool is_discrete_hbm_arch(const std::string& arch) {
     return arch.rfind("gfx9", 0) == 0;
 }
 
+DeviceClassLaunchPolicy device_class_launch_policy(const std::string& arch,
+                                                   bool has_memory_budget_arg) {
+    const bool discrete_hbm = is_discrete_hbm_arch(arch);
+    return {
+        /*enforce_eager*/    !discrete_hbm,
+        /*force_awq_kernel*/ !discrete_hbm,
+        /*cap_kv_cache*/     !discrete_hbm && !has_memory_budget_arg,
+    };
+}
+
 } // namespace backends
 } // namespace lemon
