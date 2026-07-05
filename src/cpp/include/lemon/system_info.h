@@ -118,8 +118,11 @@ public:
     // (gfx942) on a different vLLM/ROCm cadence than the RDNA wheels, so no single
     // release tag carries both. Returns the vllm.rocm_arch_overrides[arch] version
     // prefix from backend_versions.json (e.g. gfx942 -> "vllm0.19.1-rocm7.13.0"),
-    // or empty when the arch uses the default vllm.rocm pin. Keyed on the asset
-    // family (rocm_asset_family output) so it matches the release tag suffix.
+    // or empty when the arch uses the default vllm.rocm pin. Keyed on the output of
+    // rocm_asset_family(arch) — for gfx942 that is pass-through "gfx942" (not in the
+    // family map), matching the vLLM release tag suffix; for RDNA it would be the
+    // collapsed form (e.g. "gfx110X"). NOTE this differs from therock.url_mapping,
+    // which maps gfx942 -> "gfx94X-dcgpu"; vLLM release assets use the raw ISA suffix.
     static std::string vllm_rocm_version_override(const std::string& asset_family);
 
     // When set non-empty on the calling thread, get_rocm_arch() returns this

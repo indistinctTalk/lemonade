@@ -303,6 +303,10 @@ VLLMArgResolution resolve_vllm_args(const std::string& model_name,
 }
 
 bool is_discrete_hbm_arch(const std::string& arch) {
+    // gfx9* spans every CDNA generation (gfx908/MI100, gfx90a/MI200, gfx942/MI300X,
+    // gfx950) and Vega20 (gfx906) — all HBM discrete parts, none of them RDNA
+    // (gfx10xx-gfx12xx). The gfx906 breadth is inert in practice: it is not in the
+    // vLLM support matrix, so the support gate rejects it before this predicate runs.
     return arch.rfind("gfx9", 0) == 0;
 }
 
