@@ -302,5 +302,9 @@ VLLMArgResolution resolve_vllm_args(const std::string& model_name,
     };
 }
 
+bool is_discrete_hbm_arch(const std::string& arch) {
+    return arch.rfind("gfx9", 0) == 0;
+}
+
 } // namespace backends
 } // namespace lemon
