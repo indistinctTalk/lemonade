@@ -114,6 +114,14 @@ public:
     // (and values already in family form) are returned unchanged.
     static std::string rocm_asset_family(const std::string& arch);
 
+    // vLLM asset lines diverge by GPU family: AMD publishes CDNA-dcgpu wheels
+    // (gfx942) on a different vLLM/ROCm cadence than the RDNA wheels, so no single
+    // release tag carries both. Returns the vllm.rocm_arch_overrides[arch] version
+    // prefix from backend_versions.json (e.g. gfx942 -> "vllm0.19.1-rocm7.13.0"),
+    // or empty when the arch uses the default vllm.rocm pin. Keyed on the asset
+    // family (rocm_asset_family output) so it matches the release tag suffix.
+    static std::string vllm_rocm_version_override(const std::string& asset_family);
+
     // When set non-empty on the calling thread, get_rocm_arch() returns this
     // value instead of probing hardware, so backend asset URLs can be resolved
     // for an arbitrary GPU topology with no GPU present. Per-thread so it cannot

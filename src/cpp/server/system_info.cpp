@@ -2032,6 +2032,27 @@ std::string SystemInfo::rocm_asset_family(const std::string& arch) {
     return arch;
 }
 
+std::string SystemInfo::vllm_rocm_version_override(const std::string& asset_family) {
+    static const json overrides = []() -> json {
+        try {
+            std::string config_path = utils::get_resource_path("resources/backend_versions.json");
+            std::ifstream file(config_path);
+            if (!file.is_open()) {
+                return json::object();
+            }
+            json vllm = json::parse(file).value("vllm", json::object());
+            return vllm.value("rocm_arch_overrides", json::object());
+        } catch (...) {
+            return json::object();
+        }
+    }();
+
+    if (auto it = overrides.find(asset_family); it != overrides.end() && it->is_string()) {
+        return it->get<std::string>();
+    }
+    return "";
+}
+
 std::string SystemInfo::get_rocm_arch() {
     // Returns the ROCm architecture for the best available AMD GPU on this system
     // Checks iGPU first, then dGPUs. Returns empty string if no compatible GPU found.
