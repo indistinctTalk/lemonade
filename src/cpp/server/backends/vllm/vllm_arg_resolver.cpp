@@ -238,6 +238,11 @@ bool has_dtype_arg(const std::vector<ParsedArg>& args) {
                        [](const ParsedArg& arg) { return arg.flag == "--dtype"; });
 }
 
+bool has_enforce_eager_arg(const std::vector<ParsedArg>& args) {
+    return std::any_of(args.begin(), args.end(),
+                       [](const ParsedArg& arg) { return arg.flag == "--enforce-eager"; });
+}
+
 const ParsedArg* find_arg(const std::vector<ParsedArg>& args, const std::string& flag) {
     auto it = std::find_if(args.begin(), args.end(),
                            [&](const ParsedArg& arg) { return arg.flag == flag; });
@@ -297,6 +302,7 @@ VLLMArgResolution resolve_vllm_args(const std::string& model_name,
         flatten_args(resolved),
         has_memory_budget_arg(resolved),
         has_dtype_arg(resolved),
+        has_enforce_eager_arg(resolved),
         quantization_arg != nullptr,
         quantization_value
     };
@@ -311,10 +317,13 @@ bool is_discrete_hbm_arch(const std::string& arch) {
 }
 
 DeviceClassLaunchPolicy device_class_launch_policy(const std::string& arch,
-                                                   bool has_memory_budget_arg) {
+                                                   bool has_memory_budget_arg,
+                                                   bool has_enforce_eager) {
     const bool discrete_hbm = is_discrete_hbm_arch(arch);
     return {
-        /*enforce_eager*/    !discrete_hbm,
+        // discrete-HBM defaults to CUDA graphs, but an explicit --enforce-eager
+        // request always wins (escape hatch for a graph-capture-hostile model).
+        /*enforce_eager*/    !discrete_hbm || has_enforce_eager,
         /*force_awq_kernel*/ !discrete_hbm,
         /*cap_kv_cache*/     !discrete_hbm && !has_memory_budget_arg,
     };

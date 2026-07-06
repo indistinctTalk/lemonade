@@ -74,6 +74,15 @@ int main() {
     expect(rdna_dgpu.enforce_eager && rdna_dgpu.cap_kv_cache && rdna_dgpu.force_awq_kernel,
            "gfx1100 (consumer dGPU) keeps conservative defaults");
 
+    // Escape hatch: an explicit --enforce-eager forces eager even on discrete-HBM
+    // (for a model whose CUDA-graph capture misbehaves), without disturbing the
+    // other discrete-HBM defaults.
+    auto cdna_eager = device_class_launch_policy("gfx942", false, /*has_enforce_eager=*/true);
+    expect(cdna_eager.enforce_eager,
+           "explicit --enforce-eager overrides the discrete-HBM graph default on gfx942");
+    expect(!cdna_eager.cap_kv_cache && !cdna_eager.force_awq_kernel,
+           "the eager escape hatch does not disturb the other gfx942 defaults");
+
     if (failures != 0) {
         std::cout << failures << " assertion(s) failed" << std::endl;
         return 1;

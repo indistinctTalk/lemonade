@@ -355,7 +355,8 @@ void VLLMServer::load(const std::string& model_name,
     // Discrete-HBM datacenter GPUs (AMD Instinct) skip it so vLLM captures CUDA
     // graphs — eager costs decode throughput there for no stability benefit.
     const DeviceClassLaunchPolicy launch_policy = device_class_launch_policy(
-        SystemInfo::get_rocm_arch(), resolved_vllm_args.has_memory_budget_arg);
+        SystemInfo::get_rocm_arch(), resolved_vllm_args.has_memory_budget_arg,
+        resolved_vllm_args.has_enforce_eager);
     if (launch_policy.enforce_eager) {
         args.push_back("--enforce-eager");
     }
