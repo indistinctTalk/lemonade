@@ -22,6 +22,11 @@ struct VLLMArgResolution {
     bool has_enforce_eager = false;
     bool has_quantization_arg = false;
     std::string quantization_arg;
+    // Serialized JSON for --speculative-config (e.g. MTP speculative decoding),
+    // empty when unset. It is a structured object rather than a passthrough flag
+    // because the space/quote tokenizer used for `vllm_args` would corrupt inline
+    // JSON — so it is read as a config object and re-serialized by the backend.
+    std::string speculative_config;
 };
 
 VLLMArgResolution resolve_vllm_args(const std::string& model_name,

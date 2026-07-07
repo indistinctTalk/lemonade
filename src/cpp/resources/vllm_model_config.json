@@ -37,11 +37,13 @@
     },
     "Qwen3.6-27B-FP8-vLLM-lowconc": {
       "family": "qwen3.",
-      "args": "--max-num-seqs 8"
+      "args": "--max-num-seqs 8",
+      "speculative_config": { "method": "mtp", "num_speculative_tokens": 1 }
     },
     "Qwen3.6-27B-FP8-vLLM-highconc": {
       "family": "qwen3.",
-      "args": "--max-num-seqs 256"
+      "args": "--max-num-seqs 256",
+      "speculative_config": { "method": "mtp", "num_speculative_tokens": 1 }
     },
     "Qwen3.6-35B-A3B-FP16-vLLM": {
       "family": "qwen3."

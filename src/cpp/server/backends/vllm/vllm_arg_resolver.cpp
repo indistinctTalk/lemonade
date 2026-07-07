@@ -313,13 +313,25 @@ VLLMArgResolution resolve_vllm_args(const std::string& model_name,
         ? quantization_arg->values.front()
         : "";
 
+    // speculative_config is a structured JSON knob (e.g. MTP) that can't ride the
+    // args string — read it as an object from the family then the model entry
+    // (model wins) and re-serialize for the backend to emit as --speculative-config.
+    std::string speculative_config;
+    if (family && family->contains("speculative_config")) {
+        speculative_config = (*family)["speculative_config"].dump();
+    }
+    if (model_entry && model_entry->contains("speculative_config")) {
+        speculative_config = (*model_entry)["speculative_config"].dump();
+    }
+
     return {
         flatten_args(resolved),
         has_memory_budget_arg(resolved),
         has_dtype_arg(resolved),
         has_enforce_eager,
         quantization_arg != nullptr,
-        quantization_value
+        quantization_value,
+        speculative_config
     };
 }
 

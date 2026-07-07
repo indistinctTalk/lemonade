@@ -414,6 +414,16 @@ void VLLMServer::load(const std::string& model_name,
         args.push_back("4G");
     }
 
+    // Speculative decoding (e.g. MTP) is configured as a structured JSON object in
+    // vllm_model_config.json and serialized here, since --speculative-config's JSON
+    // value cannot survive the vllm_args tokenizer.
+    if (!resolved_vllm_args.speculative_config.empty()) {
+        LOG(DEBUG, "vLLM") << "Enabling speculative decoding: "
+                           << resolved_vllm_args.speculative_config << std::endl;
+        args.push_back("--speculative-config");
+        args.push_back(resolved_vllm_args.speculative_config);
+    }
+
     if (!resolved_vllm_args.args.empty()) {
         LOG(DEBUG, "vLLM") << "Adding model/user arguments from vLLM resolver" << std::endl;
         args.insert(args.end(), resolved_vllm_args.args.begin(), resolved_vllm_args.args.end());

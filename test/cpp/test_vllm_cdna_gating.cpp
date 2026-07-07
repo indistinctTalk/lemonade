@@ -106,6 +106,23 @@ int main() {
                "resolve_vllm_args without --enforce-eager reports has_enforce_eager=false");
     }
 
+    // speculative_config (e.g. MTP) is a structured JSON knob — read from the model
+    // config and serialized for --speculative-config, since inline JSON can't ride
+    // the vllm_args tokenizer.
+    {
+        nlohmann::json cfg;
+        cfg["models"]["M"]["speculative_config"] = {{"method", "mtp"}, {"num_speculative_tokens", 1}};
+        auto res = resolve_vllm_args("M", "cp", cfg, "");
+        expect(!res.speculative_config.empty(),
+               "resolve_vllm_args surfaces model speculative_config");
+        expect(res.speculative_config.find("mtp") != std::string::npos &&
+               res.speculative_config.find("num_speculative_tokens") != std::string::npos,
+               "speculative_config serializes the MTP JSON for --speculative-config");
+        auto none = resolve_vllm_args("M", "cp", nlohmann::json::object(), "");
+        expect(none.speculative_config.empty(),
+               "speculative_config is empty when the model config does not set it");
+    }
+
     // Status expected-version must resolve the SAME per-arch override that install
     // writes, or gfx942 reads update_required forever. gfx942 rides the dcgpu release
     // LINE, whose base the default RDNA pin cannot prefix-match — document both halves.
