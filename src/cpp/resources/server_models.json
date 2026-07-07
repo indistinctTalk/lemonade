@@ -1718,6 +1718,28 @@
         ],
         "size": 55.59
     },
+    "Qwen3.6-27B-FP8-vLLM-lowconc": {
+        "checkpoint": "Qwen/Qwen3.6-27B-FP8",
+        "recipe": "vllm",
+        "suggested": false,
+        "labels": [
+            "reasoning",
+            "tool-calling",
+            "vision"
+        ],
+        "size": 27.8
+    },
+    "Qwen3.6-27B-FP8-vLLM-highconc": {
+        "checkpoint": "Qwen/Qwen3.6-27B-FP8",
+        "recipe": "vllm",
+        "suggested": false,
+        "labels": [
+            "reasoning",
+            "tool-calling",
+            "vision"
+        ],
+        "size": 27.8
+    },
     "Qwen3.6-35B-A3B-FP16-vLLM": {
         "checkpoint": "Qwen/Qwen3.6-35B-A3B",
         "recipe": "vllm",

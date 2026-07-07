@@ -35,6 +35,14 @@
     "Qwen3.6-27B-FP16-vLLM": {
       "family": "qwen3."
     },
+    "Qwen3.6-27B-FP8-vLLM-lowconc": {
+      "family": "qwen3.",
+      "args": "--max-num-seqs 8"
+    },
+    "Qwen3.6-27B-FP8-vLLM-highconc": {
+      "family": "qwen3.",
+      "args": "--max-num-seqs 256"
+    },
     "Qwen3.6-35B-A3B-FP16-vLLM": {
       "family": "qwen3."
     },
