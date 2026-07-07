@@ -116,7 +116,7 @@ Later layers override conflicting earlier flags but keep non-conflicting flags. 
 
 Lemonade-managed process arguments cannot be set in this file or in `vllm_args`: `--model`, `--served-model-name`, `--host`, `--port`, `--max-model-len`, and `--enable-prefix-caching`.
 
-`--enforce-eager` is a special case: it is normally managed by Lemonade (discrete-HBM GPUs such as MI300X default to CUDA-graph capture, while shared-memory GPUs default to eager), but you **may** pass `--enforce-eager` in `vllm_args` as a managed *intent* to force eager mode on a discrete-HBM GPU — either when bringing up a newly-added / not-yet-fully-supported model, or when an existing model's CUDA-graph capture misbehaves. Lemonade detects it and re-emits it exactly once (it is not passed through as a raw duplicate flag).
+`--enforce-eager` is a special case: it is normally managed by Lemonade (discrete-HBM GPUs such as MI300X default to CUDA-graph capture, while every other GPU — shared-memory APUs and consumer discrete dGPUs alike — defaults to eager), but you **may** pass `--enforce-eager` in `vllm_args` as a managed *intent* to force eager mode on a discrete-HBM GPU — either when bringing up a newly-added / not-yet-fully-supported model, or when an existing model's CUDA-graph capture misbehaves. Lemonade detects it and re-emits it exactly once (it is not passed through as a raw duplicate flag).
 
 ## Speculative decoding (MTP)
 
