@@ -1,5 +1,8 @@
+#include <algorithm>
 #include <iostream>
 #include <string>
+
+#include <nlohmann/json.hpp>
 
 #include "lemon/backends/vllm/vllm_arg_resolver.h"
 #include "lemon/system_info.h"
@@ -7,6 +10,7 @@
 using lemon::SystemInfo;
 using lemon::backends::device_class_launch_policy;
 using lemon::backends::is_discrete_hbm_arch;
+using lemon::backends::resolve_vllm_args;
 
 namespace {
 
@@ -82,6 +86,43 @@ int main() {
            "explicit --enforce-eager overrides the discrete-HBM graph default on gfx942");
     expect(!cdna_eager.cap_kv_cache && !cdna_eager.force_awq_kernel,
            "the eager escape hatch does not disturb the other gfx942 defaults");
+
+    // Escape-hatch REACHABILITY: the policy above only matters if a user can actually
+    // set has_enforce_eager through the resolver. --enforce-eager must NOT be rejected
+    // as a protected flag, must be reported as a managed intent, and must be stripped
+    // from the passthrough args (load() re-emits it from the policy — a raw copy would
+    // duplicate the flag on the vLLM command line).
+    {
+        auto eager = resolve_vllm_args("m", "some/checkpoint", nlohmann::json::object(), "--enforce-eager");
+        expect(eager.has_enforce_eager,
+               "resolve_vllm_args accepts --enforce-eager and records it as a managed intent");
+        bool leaked = std::find(eager.args.begin(), eager.args.end(), "--enforce-eager") != eager.args.end();
+        expect(!leaked,
+               "resolve_vllm_args strips --enforce-eager from passthrough args (no duplicate flag)");
+    }
+    {
+        auto plain = resolve_vllm_args("m", "some/checkpoint", nlohmann::json::object(), "");
+        expect(!plain.has_enforce_eager,
+               "resolve_vllm_args without --enforce-eager reports has_enforce_eager=false");
+    }
+
+    // Status expected-version must resolve the SAME per-arch override that install
+    // writes, or gfx942 reads update_required forever. gfx942 rides the dcgpu release
+    // LINE, whose base the default RDNA pin cannot prefix-match — document both halves.
+    {
+        std::string family = SystemInfo::rocm_asset_family("gfx942");
+        std::string override_base = SystemInfo::vllm_rocm_version_override(family);
+        std::string installed = override_base + "-" + family;  // what get_install_params writes
+        auto prefix_match = [](const std::string& inst, const std::string& exp) {
+            return inst == exp || (exp.size() < inst.size() &&
+                                   inst.compare(0, exp.size() + 1, exp + "-") == 0);
+        };
+        expect(!override_base.empty(), "gfx942 pins a per-arch expected override line for status");
+        expect(prefix_match(installed, override_base),
+               "gfx942 install tag matches its per-arch expected version (fix: status resolves the override)");
+        expect(!prefix_match(installed, "vllm0.20.1-rocm7.12.0"),
+               "gfx942 install tag does NOT match the default RDNA base (why per-arch status resolution is required)");
+    }
 
     if (failures != 0) {
         std::cout << failures << " assertion(s) failed" << std::endl;

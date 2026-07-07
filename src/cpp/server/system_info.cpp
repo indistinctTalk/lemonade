@@ -740,7 +740,25 @@ static std::string get_expected_backend_version(const std::string& recipe, const
     if (!recipe_config.contains(resolved_backend) || !recipe_config[resolved_backend].is_string()) {
         return "";
     }
-    return recipe_config[resolved_backend].get<std::string>();
+    std::string base_version = recipe_config[resolved_backend].get<std::string>();
+
+    // vllm:rocm rides a per-GPU-target release line — gfx942 (CDNA-dcgpu) pins a
+    // distinct base version from the RDNA default because no single vllm-rocm tag
+    // carries both. install writes "{override}-{asset_family}" via version_override,
+    // so the expected version must resolve the SAME per-arch override or the status
+    // path perpetually reports update_required on those GPUs: versions_match tolerates
+    // the "-{family}" suffix but not a different base. (Non-vLLM / non-ROCm / no-override
+    // arches fall through to the default base unchanged.)
+    if (recipe == "vllm" && resolved_backend == "rocm") {
+        std::string asset_family = SystemInfo::rocm_asset_family(SystemInfo::get_rocm_arch());
+        if (!asset_family.empty()) {
+            std::string override_version = SystemInfo::vllm_rocm_version_override(asset_family);
+            if (!override_version.empty()) {
+                return override_version;
+            }
+        }
+    }
+    return base_version;
 }
 
 // ============================================================================

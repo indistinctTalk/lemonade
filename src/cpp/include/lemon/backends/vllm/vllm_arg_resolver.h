@@ -13,10 +13,12 @@ struct VLLMArgResolution {
     // True when the user/family already supplied --dtype, so backend code
     // should not force its own (e.g. the AWQ float16 default).
     bool has_dtype_arg = false;
-    // True when the user/family explicitly asked for --enforce-eager. It stays a
-    // protected flag (not passed through raw), but this lets a user force eager
-    // execution even on a discrete-HBM GPU that would otherwise default to CUDA
-    // graphs — an escape hatch for a model whose graph capture misbehaves.
+    // True when the user/family explicitly asked for --enforce-eager. The resolver
+    // treats it as a managed intent: it is detected here and stripped from `args`
+    // (VLLMServer::load() re-emits it from the launch policy, so a raw passthrough
+    // would duplicate it). This lets a user force eager execution even on a
+    // discrete-HBM GPU that would otherwise default to CUDA graphs — an escape
+    // hatch for a model whose graph capture misbehaves.
     bool has_enforce_eager = false;
     bool has_quantization_arg = false;
     std::string quantization_arg;

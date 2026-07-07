@@ -20,9 +20,13 @@ struct ParsedArg {
 constexpr const char* MEMORY_BUDGET_CONFLICT_KEY = "memory_budget";
 
 const std::set<std::string>& protected_flags() {
+    // --enforce-eager is deliberately absent: unlike these process-shape flags it
+    // is a managed *intent* the user may express to force eager on the discrete-HBM
+    // graph default. resolve_vllm_args() detects it and strips it from passthrough
+    // (VLLMServer::load() re-emits it from the launch policy), so it must reach the
+    // resolver rather than being rejected here.
     static const std::set<std::string> flags = {
         "--enable-prefix-caching",
-        "--enforce-eager",
         "--host",
         "--max-model-len",
         "--model",
@@ -293,6 +297,17 @@ VLLMArgResolution resolve_vllm_args(const std::string& model_name,
 
     merge_layer(resolved, parse_args(user_vllm_args, "vllm_args"));
 
+    // --enforce-eager is a managed launch-shape intent, not a passthrough flag:
+    // VLLMServer::load() re-emits it from the device-class launch policy, so detect
+    // it (to force eager over the discrete-HBM graph default) then strip it from the
+    // flattened args to avoid a duplicate flag on the vLLM command line.
+    const bool has_enforce_eager = has_enforce_eager_arg(resolved);
+    resolved.erase(std::remove_if(resolved.begin(), resolved.end(),
+                                  [](const ParsedArg& arg) {
+                                      return arg.flag == "--enforce-eager";
+                                  }),
+                   resolved.end());
+
     const ParsedArg* quantization_arg = find_arg(resolved, "--quantization");
     std::string quantization_value = quantization_arg && !quantization_arg->values.empty()
         ? quantization_arg->values.front()
@@ -302,7 +317,7 @@ VLLMArgResolution resolve_vllm_args(const std::string& model_name,
         flatten_args(resolved),
         has_memory_budget_arg(resolved),
         has_dtype_arg(resolved),
-        has_enforce_eager_arg(resolved),
+        has_enforce_eager,
         quantization_arg != nullptr,
         quantization_value
     };
