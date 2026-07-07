@@ -39,16 +39,20 @@ Some GPU targets ride a different vLLM/ROCm wheel cadence than the default pin a
 
 ### Deploying on MI300X (gfx942) — quickstart
 
-The minimum path to a working gfx942 deployment with the FP8 + MTP recipes:
+> **gfx942 is currently staged, not auto-installable.** The resolver, per-arch release pinning,
+> device-class launch policy, and FP8/MTP recipes are all in place, but gfx942 is intentionally
+> **not** in the public installable support matrix yet because its per-arch vLLM/ROCm release asset
+> is not published in `lemonade-sdk/vllm-rocm`. Once that official `gfx94X-dcgpu` asset ships, gfx942
+> is enabled with a one-line matrix flip and the steps below become a one-click `install`.
 
-1. **Runtime asset.** On a detected gfx942 GPU, Lemonade resolves the per-arch pin
-   `vllm0.19.1-rocm7.13.0-gfx942` and installs it on first use — the built-in install path downloads
-   it from `lemonade-sdk/vllm-rocm`, so **an official gfx942 release asset in that repo is a
-   prerequisite** for the automatic install. A `vllm.rocm_bin` pin changes only the tag/version, not
-   the source repository, so it cannot redirect the built-in install to a fork's build. Until the
-   official asset ships, use the community-built, hardware-validated tarball by **manually
-   sideloading** it into the vLLM backend install directory (the standalone runbook published
-   alongside the tarball, referenced below, covers the exact steps).
+The minimum path to a working gfx942 deployment today with the FP8 + MTP recipes:
+
+1. **Runtime asset.** Until the official asset ships, use the community-built, hardware-validated
+   tarball (`ianbmacdonald/vllm-rocm`, tag `vllm0.19.1-rocm7.13.0-gfx942`) by **manually sideloading**
+   it into the vLLM backend install directory. A `vllm.rocm_bin` pin changes only the tag/version, not
+   the source repository, so it cannot redirect the built-in install to a fork's build — the sideload
+   is the supported interim path (the standalone runbook published alongside the tarball covers the
+   exact steps).
 2. **Recipes.** The `Qwen3.6-27B-FP8-vLLM-{low,high}conc` and `Qwen3.6-35B-A3B-FP8-vLLM-{low,high}conc`
    recipes are built in; `lemonade run Qwen3.6-27B-FP8-vLLM-lowconc` pulls and serves. To register a
    pre-quantized checkpoint yourself: `lemonade pull user.MyModel --checkpoint Qwen/Qwen3.6-27B-FP8 --recipe vllm`.

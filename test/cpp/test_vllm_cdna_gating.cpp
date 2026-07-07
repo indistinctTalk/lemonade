@@ -30,8 +30,11 @@ void expect(bool condition, const std::string& label) {
 }  // namespace
 
 int main() {
-    expect(SystemInfo::backend_supports_arch("vllm", "rocm", "gfx942"),
-           "vllm:rocm supports gfx942 (MI300X)");
+    // gfx942 is intentionally NOT in the installable matrix yet (its per-arch vLLM/ROCm
+    // asset is unpublished). The resolver/launch-policy/recipe infrastructure below is
+    // all in place and tested; the support-matrix entry flips on when the asset ships.
+    expect(!SystemInfo::backend_supports_arch("vllm", "rocm", "gfx942"),
+           "vllm:rocm gfx942 is NOT advertised installable yet (asset pending; infra staged)");
 
     expect(SystemInfo::backend_supports_arch("vllm", "rocm", "gfx1100"),
            "vllm:rocm still supports gfx1100 via gfx110X wildcard");

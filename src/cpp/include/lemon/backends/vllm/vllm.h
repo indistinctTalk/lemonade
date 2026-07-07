@@ -25,7 +25,11 @@ inline const BackendDescriptor descriptor = {
          "Custom arguments to pass to vllm-server", "vLLM Options"},
     },
     /*support*/ {
-        {"rocm", {"linux"}, {{"amd_gpu", {"gfx1150", "gfx1151", "gfx110X", "gfx120X", "gfx942"}}}, "Strix Halo iGPU (gfx1151), AMD Instinct MI300X (gfx942)"},
+        // gfx942 (MI300X/CDNA) is intentionally NOT in the installable matrix yet:
+        // its per-arch vLLM/ROCm release asset is not published in lemonade-sdk/vllm-rocm.
+        // The resolver, launch policy, per-arch pinning, and recipes are all in place —
+        // re-add "gfx942" here once the official gfx94X-dcgpu asset ships (one-line flip).
+        {"rocm", {"linux"}, {{"amd_gpu", {"gfx1150", "gfx1151", "gfx110X", "gfx120X"}}}, "Strix Halo iGPU (gfx1151)"},
     },
     /*default_labels*/  {},
     /*required_checkpoints*/ {"main"},

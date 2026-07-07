@@ -50,7 +50,7 @@ the generator instead. Prose outside the markers is preserved. -->
 | `thinksound` | rocm | linux, windows | amd_gpu |
 | `thinksound` | cuda | linux, windows | nvidia_gpu |
 | `thinksound` | vulkan | linux, windows | amd_gpu; cpu (x86_64); nvidia_gpu |
-| `vllm` | rocm | linux | amd_gpu (gfx110X, gfx1150, gfx1151, gfx120X, gfx942) |
+| `vllm` | rocm | linux | amd_gpu (gfx110X, gfx1150, gfx1151, gfx120X) |
 | `whispercpp` | npu | windows | amd_npu (XDNA2) |
 | `whispercpp` | rocm | linux, windows | amd_gpu (gfx110X, gfx1150, gfx1151, gfx120X) |
 | `whispercpp` | vulkan | linux, windows | amd_gpu; cpu (x86_64) |
