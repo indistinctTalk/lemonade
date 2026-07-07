@@ -292,15 +292,28 @@ InstallParams VLLMServer::get_install_params(const std::string& backend, const s
         const std::string& effective_version =
             (!arch_override.empty() && on_builtin_default) ? arch_override : version;
         // One release per GPU target since 0.19.1: release tag is
-        // {version}-{target_arch}, e.g. vllm0.20.1-rocm7.12.0-gfx1151. The builtin
-        // base has no arch suffix, but a user-resolved 'latest'/explicit pin may
-        // already be a full per-target tag — only append the suffix to a bare base
-        // so a full pin doesn't become "...-gfx942-gfx942" (or a cross-arch
-        // "...-gfx1151-gfx942").
-        static const std::regex arch_suffix_re("-gfx[0-9a-fA-FxX]+$");
-        std::string release_tag = std::regex_search(effective_version, arch_suffix_re)
-                                      ? effective_version
-                                      : effective_version + "-" + target_arch;
+        // {version}-{target_arch}, e.g. vllm0.20.1-rocm7.12.0-gfx1151. A bare base
+        // (the builtin default) gets the detected -{target_arch} suffix appended. A
+        // pin that already carries a per-target suffix is used verbatim ONLY when it
+        // matches the detected arch — a cross-arch pin (a repo-wide 'latest' that
+        // resolved to a suffixed RDNA/APU tag, or an explicit mismatched tag) is
+        // rejected rather than installed/reported against the wrong architecture line.
+        static const std::regex arch_suffix_re("-(gfx[0-9a-fA-FxX]+)$");
+        std::smatch arch_suffix_match;
+        std::string release_tag;
+        if (std::regex_search(effective_version, arch_suffix_match, arch_suffix_re)) {
+            const std::string pinned_arch = arch_suffix_match[1].str();
+            if (pinned_arch != target_arch) {
+                throw std::runtime_error(
+                    "vLLM ROCm pin '" + effective_version + "' targets " + pinned_arch +
+                    " but this host is " + target_arch +
+                    "; pin a " + target_arch +
+                    " release (vllm.rocm_bin) or unset it to use the default.");
+            }
+            release_tag = effective_version;
+        } else {
+            release_tag = effective_version + "-" + target_arch;
+        }
         params.version_override = release_tag;
         params.filename = release_tag + "-x64.tar.gz";
 #else

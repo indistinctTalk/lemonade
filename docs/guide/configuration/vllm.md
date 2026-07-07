@@ -35,16 +35,20 @@ The install fetches a per-GPU-target release (e.g. `…-gfx1151`, `…-gfx1150`)
 
 #### Per-architecture release overrides
 
-Some GPU targets ride a different vLLM/ROCm wheel cadence than the default pin and cannot share a single release tag — CDNA-dcgpu (gfx942 / MI300X), for example, is published on its own vLLM/ROCm line. For those, `backend_versions.json` carries an optional `vllm.rocm_arch_overrides` map keyed by asset family; the override base is resolved for the detected arch (falling back to the default pin otherwise) before the `-{gfx_target}` suffix is appended. An explicit `vllm.rocm_bin` pin (`latest` or a specific tag) still takes precedence over the builtin per-arch override — the override only replaces the *default* base.
+Some GPU targets ride a different vLLM/ROCm wheel cadence than the default pin and cannot share a single release tag — CDNA-dcgpu (gfx942 / MI300X), for example, is published on its own vLLM/ROCm line. For those, `backend_versions.json` carries an optional `vllm.rocm_arch_overrides` map keyed by asset family; the override base is resolved for the detected arch (falling back to the default pin otherwise) before the `-{gfx_target}` suffix is appended. An explicit `vllm.rocm_bin` pin (`latest` or a specific tag) still takes precedence over the builtin per-arch override — the override only replaces the *default* base. A pin that already carries a `-{gfx_target}` suffix must match the detected architecture: a cross-arch pin (for example a repo-wide `latest` that resolved to a suffixed RDNA tag, or an explicit tag for a different target) is **rejected** rather than installed against the wrong architecture line.
 
 ### Deploying on MI300X (gfx942) — quickstart
 
 The minimum path to a working gfx942 deployment with the FP8 + MTP recipes:
 
 1. **Runtime asset.** On a detected gfx942 GPU, Lemonade resolves the per-arch pin
-   `vllm0.19.1-rocm7.13.0-gfx942` and installs it on first use. Until the official asset ships in
-   `lemonade-sdk/vllm-rocm`, a community-built, hardware-validated tarball is available and can be
-   pinned with `lemonade config set vllm.rocm_bin=vllm0.19.1-rocm7.13.0-gfx942`.
+   `vllm0.19.1-rocm7.13.0-gfx942` and installs it on first use — the built-in install path downloads
+   it from `lemonade-sdk/vllm-rocm`, so **an official gfx942 release asset in that repo is a
+   prerequisite** for the automatic install. A `vllm.rocm_bin` pin changes only the tag/version, not
+   the source repository, so it cannot redirect the built-in install to a fork's build. Until the
+   official asset ships, use the community-built, hardware-validated tarball by **manually
+   sideloading** it into the vLLM backend install directory (the standalone runbook published
+   alongside the tarball, referenced below, covers the exact steps).
 2. **Recipes.** The `Qwen3.6-27B-FP8-vLLM-{low,high}conc` and `Qwen3.6-35B-A3B-FP8-vLLM-{low,high}conc`
    recipes are built in; `lemonade run Qwen3.6-27B-FP8-vLLM-lowconc` pulls and serves. To register a
    pre-quantized checkpoint yourself: `lemonade pull user.MyModel --checkpoint Qwen/Qwen3.6-27B-FP8 --recipe vllm`.

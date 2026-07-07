@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <iostream>
 #include <regex>
+#include <stdexcept>
 #include <string>
 
 #include <nlohmann/json.hpp>
@@ -138,20 +139,35 @@ int main() {
                "model-level speculative_config overrides the family-level one");
     }
 
-    // Release-tag construction must not double-suffix a full user pin (the gfx942
-    // install path appends -{arch} only to a bare base). Mirrors the regex used in
+    // Release-tag construction: a bare base gets the -{arch} suffix; a full pin that
+    // matches the detected arch is used verbatim (no double suffix); a cross-arch pin
+    // is REJECTED rather than installed against the wrong architecture line. Mirrors
     // VLLMServer::get_install_params; the box install/dry-run matrix is the integration teeth.
     {
-        auto release_tag = [](const std::string& v, const std::string& arch) {
-            static const std::regex re("-gfx[0-9a-fA-FxX]+$");
-            return std::regex_search(v, re) ? v : v + "-" + arch;
+        auto release_tag = [](const std::string& v, const std::string& arch) -> std::string {
+            static const std::regex re("-(gfx[0-9a-fA-FxX]+)$");
+            std::smatch match;
+            if (std::regex_search(v, match, re)) {
+                if (match[1].str() != arch) {
+                    throw std::runtime_error("vLLM ROCm pin '" + v + "' targets " +
+                                             match[1].str() + " but this host is " + arch);
+                }
+                return v;
+            }
+            return v + "-" + arch;
         };
         expect(release_tag("vllm0.19.1-rocm7.13.0", "gfx942") == "vllm0.19.1-rocm7.13.0-gfx942",
                "a bare base version gets the -gfx942 target suffix");
         expect(release_tag("vllm0.19.1-rocm7.13.0-gfx942", "gfx942") == "vllm0.19.1-rocm7.13.0-gfx942",
-               "a full -gfx942 user pin is used verbatim (no ...-gfx942-gfx942 double suffix)");
-        expect(release_tag("vllm0.20.1-rocm7.12.0-gfx110X", "gfx942") == "vllm0.20.1-rocm7.12.0-gfx110X",
-               "a full cross-arch pin is used verbatim, not re-suffixed to ...-gfx942");
+               "a full -gfx942 pin matching the host is used verbatim (no ...-gfx942-gfx942 double suffix)");
+        bool cross_arch_rejected = false;
+        try {
+            release_tag("vllm0.20.1-rocm7.12.0-gfx110X", "gfx942");
+        } catch (const std::runtime_error&) {
+            cross_arch_rejected = true;
+        }
+        expect(cross_arch_rejected,
+               "a cross-arch pin (gfx110X on a gfx942 host) is REJECTED, not installed against the wrong arch");
     }
 
     // Status expected-version must resolve the SAME per-arch override that install
