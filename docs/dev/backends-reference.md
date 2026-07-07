@@ -307,7 +307,7 @@ the generator instead. Prose outside the markers is preserved. -->
 | `SDXL-Turbo` | 6.94 | image |
 | `Z-Image-Turbo` | 20.7 | image |
 
-#### `vllm` — vLLM ROCm (experimental) (7 models)
+#### `vllm` — vLLM ROCm (experimental) (11 models)
 
 | Model | Size (GB) | Labels |
 |-------|-----------|--------|
@@ -317,7 +317,11 @@ the generator instead. Prose outside the markers is preserved. -->
 | `Qwen3.5-4B-FP16-vLLM` | 9.34 | reasoning, hot, tool-calling |
 | `Qwen3.5-9B-FP16-vLLM` | 19.3 | reasoning, tool-calling |
 | `Qwen3.6-27B-FP16-vLLM` | 55.59 | reasoning, tool-calling, vision |
+| `Qwen3.6-27B-FP8-vLLM-highconc` | 27.8 | reasoning, tool-calling, vision, mtp |
+| `Qwen3.6-27B-FP8-vLLM-lowconc` | 27.8 | reasoning, tool-calling, vision, mtp |
 | `Qwen3.6-35B-A3B-FP16-vLLM` | 71.93 | reasoning, tool-calling, vision |
+| `Qwen3.6-35B-A3B-FP8-vLLM-highconc` | 36.0 | reasoning, tool-calling, vision, mtp |
+| `Qwen3.6-35B-A3B-FP8-vLLM-lowconc` | 36.0 | reasoning, tool-calling, vision, mtp |
 
 #### `whispercpp` — Whisper.cpp (6 models)
 

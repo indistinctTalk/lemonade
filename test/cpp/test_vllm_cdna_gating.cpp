@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <iostream>
+#include <regex>
 #include <string>
 
 #include <nlohmann/json.hpp>
@@ -121,6 +122,36 @@ int main() {
         auto none = resolve_vllm_args("M", "cp", nlohmann::json::object(), "");
         expect(none.speculative_config.empty(),
                "speculative_config is empty when the model config does not set it");
+    }
+
+    // speculative_config resolves family-first then model (model wins).
+    {
+        nlohmann::json cfg;
+        cfg["families"]["fam"]["speculative_config"] = {{"method", "mtp"}, {"num_speculative_tokens", 2}};
+        cfg["models"]["FM"]["family"] = "fam";
+        auto fam = resolve_vllm_args("FM", "cp", cfg, "");
+        expect(fam.speculative_config.find("\"num_speculative_tokens\":2") != std::string::npos,
+               "family-level speculative_config is applied when the model sets none");
+        cfg["models"]["FM"]["speculative_config"] = {{"method", "mtp"}, {"num_speculative_tokens", 1}};
+        auto model_wins = resolve_vllm_args("FM", "cp", cfg, "");
+        expect(model_wins.speculative_config.find("\"num_speculative_tokens\":1") != std::string::npos,
+               "model-level speculative_config overrides the family-level one");
+    }
+
+    // Release-tag construction must not double-suffix a full user pin (the gfx942
+    // install path appends -{arch} only to a bare base). Mirrors the regex used in
+    // VLLMServer::get_install_params; the box install/dry-run matrix is the integration teeth.
+    {
+        auto release_tag = [](const std::string& v, const std::string& arch) {
+            static const std::regex re("-gfx[0-9a-fA-FxX]+$");
+            return std::regex_search(v, re) ? v : v + "-" + arch;
+        };
+        expect(release_tag("vllm0.19.1-rocm7.13.0", "gfx942") == "vllm0.19.1-rocm7.13.0-gfx942",
+               "a bare base version gets the -gfx942 target suffix");
+        expect(release_tag("vllm0.19.1-rocm7.13.0-gfx942", "gfx942") == "vllm0.19.1-rocm7.13.0-gfx942",
+               "a full -gfx942 user pin is used verbatim (no ...-gfx942-gfx942 double suffix)");
+        expect(release_tag("vllm0.20.1-rocm7.12.0-gfx110X", "gfx942") == "vllm0.20.1-rocm7.12.0-gfx110X",
+               "a full cross-arch pin is used verbatim, not re-suffixed to ...-gfx942");
     }
 
     // Status expected-version must resolve the SAME per-arch override that install
