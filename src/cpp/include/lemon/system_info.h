@@ -108,6 +108,13 @@ public:
     static std::string get_rocm_arch();
     static std::string get_cuda_arch();
 
+    // Pick the ROCm arch for the best AMD GPU from a /system-info "amd_gpu" device
+    // array. The array is populated iGPU-first, so a hybrid host (e.g. a Strix Halo
+    // APU alongside an MI300X dGPU) must not just take the first entry — a discrete
+    // GPU is the intended ROCm compute target and wins, falling back to an integrated
+    // GPU only when no discrete one is available. Exposed for unit testing.
+    static std::string select_rocm_arch(const json& amd_gpu_devices);
+
     // Collapse a concrete ROCm ISA (e.g. gfx1201) to the family target name the
     // GitHub release repos publish their assets under (e.g. gfx120X), per the
     // rocm_asset_families map in backend_versions.json. ISAs absent from the map

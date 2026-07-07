@@ -170,6 +170,33 @@ int main() {
                "a cross-arch pin (gfx110X on a gfx942 host) is REJECTED, not installed against the wrong arch");
     }
 
+    // get_rocm_arch must prefer a DISCRETE GPU. The amd_gpu device list is populated
+    // iGPU-first, so a hybrid host (Strix Halo APU gfx1151 + MI300X dGPU gfx942) must
+    // resolve gfx942, not the iGPU's gfx1151. Exercises SystemInfo::select_rocm_arch.
+    {
+        nlohmann::json hybrid = nlohmann::json::array();
+        hybrid.push_back({{"name", "AMD Radeon 8060S"}, {"family", "gfx1151"}, {"integrated", true}, {"available", true}});
+        hybrid.push_back({{"name", "AMD Instinct MI300X"}, {"family", "gfx942"}, {"integrated", false}, {"available", true}});
+        expect(SystemInfo::select_rocm_arch(hybrid) == "gfx942",
+               "hybrid iGPU(gfx1151)+dGPU(gfx942): the discrete MI300X wins over the iGPU");
+
+        nlohmann::json igpu_only = nlohmann::json::array();
+        igpu_only.push_back({{"name", "AMD Radeon 8060S"}, {"family", "gfx1151"}, {"integrated", true}, {"available", true}});
+        expect(SystemInfo::select_rocm_arch(igpu_only) == "gfx1151",
+               "iGPU-only (Strix Halo) still resolves its integrated arch");
+
+        nlohmann::json dgpu_only = nlohmann::json::array();
+        dgpu_only.push_back({{"name", "AMD Instinct MI300X"}, {"family", "gfx942"}, {"integrated", false}, {"available", true}});
+        expect(SystemInfo::select_rocm_arch(dgpu_only) == "gfx942",
+               "dGPU-only resolves the discrete arch");
+
+        nlohmann::json unavailable_dgpu = nlohmann::json::array();
+        unavailable_dgpu.push_back({{"name", "AMD Radeon 8060S"}, {"family", "gfx1151"}, {"integrated", true}, {"available", true}});
+        unavailable_dgpu.push_back({{"name", "AMD Instinct MI300X"}, {"family", "gfx942"}, {"integrated", false}, {"available", false}});
+        expect(SystemInfo::select_rocm_arch(unavailable_dgpu) == "gfx1151",
+               "an unavailable discrete GPU falls back to the available iGPU");
+    }
+
     // Status expected-version must resolve the SAME per-arch override that install
     // writes, or gfx942 reads update_required forever. gfx942 rides the dcgpu release
     // LINE, whose base the default RDNA pin cannot prefix-match — document both halves.

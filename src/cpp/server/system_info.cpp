@@ -823,7 +823,8 @@ json SystemInfo::get_device_dict() {
         if (amd_igpu.available) {
             json gpu_json = {
                 {"name", amd_igpu.name},
-                {"available", amd_igpu.available}
+                {"available", amd_igpu.available},
+                {"integrated", true}
             };
             if (amd_igpu.vram_gb > 0) {
                 gpu_json["vram_gb"] = amd_igpu.vram_gb;
@@ -843,7 +844,8 @@ json SystemInfo::get_device_dict() {
             if (gpu.available) {
                 json gpu_json = {
                     {"name", gpu.name},
-                    {"available", gpu.available}
+                    {"available", gpu.available},
+                    {"integrated", false}
                 };
                 if (gpu.vram_gb > 0) {
                     gpu_json["vram_gb"] = gpu.vram_gb;
@@ -2071,9 +2073,43 @@ std::string SystemInfo::vllm_rocm_version_override(const std::string& asset_fami
     return "";
 }
 
+std::string SystemInfo::select_rocm_arch(const json& amd_gpu_devices) {
+    if (!amd_gpu_devices.is_array()) {
+        return "";
+    }
+    // The device array is populated iGPU-first, so returning the first supported
+    // match picks the iGPU on a hybrid host (e.g. a Strix Halo APU alongside an
+    // MI300X). A discrete GPU is the intended ROCm compute target, so prefer it and
+    // keep an integrated GPU only as the fallback when no discrete one is available.
+    std::string integrated_fallback;
+    for (const auto& gpu : amd_gpu_devices) {
+        if (!gpu.value("available", false)) {
+            continue;
+        }
+        // The "family" field is identify_rocm_arch_from_name(name) captured at
+        // detection time; fall back to re-deriving from the name if it is absent.
+        std::string arch = gpu.value("family", "");
+        if (arch.empty()) {
+            arch = identify_rocm_arch_from_name(gpu.value("name", ""));
+        }
+        if (arch.empty()) {
+            continue;
+        }
+        if (gpu.value("integrated", false)) {
+            if (integrated_fallback.empty()) {
+                integrated_fallback = arch;
+            }
+            continue;
+        }
+        return arch;  // discrete GPU wins
+    }
+    return integrated_fallback;  // empty if no supported AMD GPU found
+}
+
 std::string SystemInfo::get_rocm_arch() {
-    // Returns the ROCm architecture for the best available AMD GPU on this system
-    // Checks iGPU first, then dGPUs. Returns empty string if no compatible GPU found.
+    // Returns the ROCm architecture for the best available AMD GPU on this system,
+    // preferring a discrete GPU over an integrated one (see select_rocm_arch).
+    // Returns empty string if no compatible GPU is found.
     if (!g_rocm_arch_override.empty()) {
         return g_rocm_arch_override;
     }
@@ -2086,20 +2122,8 @@ std::string SystemInfo::get_rocm_arch() {
         }
 
         const auto& devices = system_info["devices"];
-
-        // Check AMD GPUs
-        if (devices.contains("amd_gpu") && devices["amd_gpu"].is_array()) {
-            for (const auto& gpu : devices["amd_gpu"]) {
-                if (gpu.value("available", false)) {
-                    std::string name = gpu.value("name", "");
-                    if (!name.empty()) {
-                        std::string arch = identify_rocm_arch_from_name(name);
-                        if (!arch.empty()) {
-                            return arch;
-                        }
-                    }
-                }
-            }
+        if (devices.contains("amd_gpu")) {
+            return select_rocm_arch(devices["amd_gpu"]);
         }
     } catch (...) {
         // Detection failed
