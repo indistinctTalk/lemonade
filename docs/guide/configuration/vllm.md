@@ -99,6 +99,12 @@ Lemonade-managed process arguments cannot be set in this file or in `vllm_args`:
 
 `--enforce-eager` is a special case: it is normally managed by Lemonade (discrete-HBM GPUs such as MI300X default to CUDA-graph capture, while shared-memory GPUs default to eager), but you **may** pass `--enforce-eager` in `vllm_args` as a managed *intent* to force eager mode on a discrete-HBM GPU whose graph capture misbehaves. Lemonade detects it and re-emits it exactly once (it is not passed through as a raw duplicate flag).
 
+## Speculative decoding (MTP)
+
+Some FP8 Qwen3.6 recipes enable **Multi-Token Prediction (MTP)** speculative decoding through a structured `speculative_config` object in [`vllm_model_config.json`](https://github.com/lemonade-sdk/lemonade/blob/main/src/cpp/resources/vllm_model_config.json) (`{"method": "mtp", "num_speculative_tokens": 1}`). It is configured as an object rather than a `vllm_args` string because the space-delimited `vllm_args` tokenizer would corrupt inline JSON; Lemonade serializes it to a single `--speculative-config` argument.
+
+**Validation scope.** MTP was verified on gfx942 / MI300X (`vllm0.19.1-rocm7.13.0`): vLLM detects the model's MTP head, and the dense `Qwen3.6-27B-FP8` recipe reached ~80% draft-token acceptance. The `Qwen3.6-35B-A3B-FP8` MoE recipes were throughput-benched on the same GPU with the MTP head active. The recipes are **not** arch-restricted, so an RDNA host with enough VRAM can load them against the default RDNA pin (`vllm0.20.1-rocm7.12.0`); that pin is newer than the gfx942 line and exposes the same method, but MTP on RDNA has not been independently serve-validated.
+
 ## Tuning
 
 Free-form CLI args can be appended to `vllm-server` via `vllm.args`:
