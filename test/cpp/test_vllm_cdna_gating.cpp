@@ -142,6 +142,20 @@ int main() {
                "model-level speculative_config overrides the family-level one");
     }
 
+    // speculative_config must be a JSON object — a scalar/array is a config mistake,
+    // rejected with a clear error rather than silently dumped (fl0rianr review).
+    {
+        nlohmann::json cfg;
+        cfg["models"]["M"]["speculative_config"] = "mtp";  // wrong: a string, not an object
+        bool threw = false;
+        try {
+            resolve_vllm_args("M", "cp", cfg, "");
+        } catch (const std::runtime_error&) {
+            threw = true;
+        }
+        expect(threw, "a non-object speculative_config is rejected with a clear error");
+    }
+
     // Release-tag construction: a bare base gets the -{arch} suffix; a full pin that
     // matches the detected arch is used verbatim (no double suffix); a cross-arch pin
     // is REJECTED rather than installed against the wrong architecture line. Mirrors

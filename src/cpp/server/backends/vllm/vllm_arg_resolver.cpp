@@ -316,13 +316,23 @@ VLLMArgResolution resolve_vllm_args(const std::string& model_name,
     // speculative_config is a structured JSON knob (e.g. MTP) that can't ride the
     // args string — read it as an object from the family then the model entry
     // (model wins) and re-serialize for the backend to emit as --speculative-config.
+    // It MUST be a JSON object; a scalar/array is a config mistake we reject with a
+    // clear message rather than silently dumping something vLLM cannot parse.
     std::string speculative_config;
-    if (family && family->contains("speculative_config")) {
-        speculative_config = (*family)["speculative_config"].dump();
-    }
-    if (model_entry && model_entry->contains("speculative_config")) {
-        speculative_config = (*model_entry)["speculative_config"].dump();
-    }
+    auto take_speculative_config = [&speculative_config](const nlohmann::json* src,
+                                                         const char* scope) {
+        if (!src || !src->contains("speculative_config")) {
+            return;
+        }
+        const nlohmann::json& sc = (*src)["speculative_config"];
+        if (!sc.is_object()) {
+            throw std::runtime_error(std::string("speculative_config in the ") + scope +
+                                     " entry must be a JSON object, got " + sc.type_name());
+        }
+        speculative_config = sc.dump();
+    };
+    take_speculative_config(family, "family");
+    take_speculative_config(model_entry, "model");
 
     return {
         flatten_args(resolved),
