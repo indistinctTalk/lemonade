@@ -37,6 +37,25 @@ The install fetches a per-GPU-target release (e.g. `…-gfx1151`, `…-gfx1150`)
 
 Some GPU targets ride a different vLLM/ROCm wheel cadence than the default pin and cannot share a single release tag — CDNA-dcgpu (gfx942 / MI300X), for example, is published on its own vLLM/ROCm line. For those, `backend_versions.json` carries an optional `vllm.rocm_arch_overrides` map keyed by asset family; the override base is resolved for the detected arch (falling back to the default pin otherwise) before the `-{gfx_target}` suffix is appended. An explicit `vllm.rocm_bin` pin (`latest` or a specific tag) still takes precedence over the builtin per-arch override — the override only replaces the *default* base.
 
+### Deploying on MI300X (gfx942) — quickstart
+
+The minimum path to a working gfx942 deployment with the FP8 + MTP recipes:
+
+1. **Runtime asset.** On a detected gfx942 GPU, Lemonade resolves the per-arch pin
+   `vllm0.19.1-rocm7.13.0-gfx942` and installs it on first use. Until the official asset ships in
+   `lemonade-sdk/vllm-rocm`, a community-built, hardware-validated tarball is available and can be
+   pinned with `lemonade config set vllm.rocm_bin=vllm0.19.1-rocm7.13.0-gfx942`.
+2. **Recipes.** The `Qwen3.6-27B-FP8-vLLM-{low,high}conc` and `Qwen3.6-35B-A3B-FP8-vLLM-{low,high}conc`
+   recipes are built in; `lemonade run Qwen3.6-27B-FP8-vLLM-lowconc` pulls and serves. To register a
+   pre-quantized checkpoint yourself: `lemonade pull user.MyModel --checkpoint Qwen/Qwen3.6-27B-FP8 --recipe vllm`.
+3. **Verify.** The vLLM log shows the MTP head detected and the draft-token acceptance rate (~80% on
+   the 27B dense recipe, gfx942). Discrete-HBM launch defaults apply automatically; force eager for a
+   misbehaving model with `lemonade config set vllm.args="--enforce-eager"`.
+
+A standalone copy of this runbook and importable recipe JSONs are published alongside the gfx942
+runtime tarball as release assets. AITER (fused-MoE FP8 kernels) is a separate build-repo bake — the
+recipes serve correctly without it.
+
 ## Use
 
 Models registered with the `vllm` recipe in [`server_models.json`](https://github.com/lemonade-sdk/lemonade/blob/main/src/cpp/resources/server_models.json) load automatically on first request. Built-in `vllm` entries serve the upstream Hugging Face weights as-is in **FP16** — there is no quantization step in the load path — so their model IDs carry an explicit `-FP16-` segment (e.g. `Qwen3.5-4B-FP16-vLLM`). This mirrors the `-Hybrid` / `-CPU` suffix convention used by `ryzenai-llm` and makes the data type obvious next to `llamacpp` (GGUF, typically Q4_K_M) and `flm` (4-bit) entries in the same list. Pointing a `user.*` `vllm` registration at a pre-quantized checkpoint (FP8, AWQ, GPTQ, etc.) is still supported.
