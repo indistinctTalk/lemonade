@@ -50,7 +50,7 @@ The minimum path to a working gfx942 deployment with the FP8 + MTP recipes:
    pre-quantized checkpoint yourself: `lemonade pull user.MyModel --checkpoint Qwen/Qwen3.6-27B-FP8 --recipe vllm`.
 3. **Verify.** The vLLM log shows the MTP head detected and the draft-token acceptance rate (~80% on
    the 27B dense recipe, gfx942). Discrete-HBM launch defaults apply automatically; force eager for a
-   misbehaving model with `lemonade config set vllm.args="--enforce-eager"`.
+   newly-added or misbehaving model with `lemonade config set vllm.args="--enforce-eager"`.
 
 A standalone copy of this runbook and importable recipe JSONs are published alongside the gfx942
 runtime tarball as release assets. AITER (fused-MoE FP8 kernels) is a separate build-repo bake — the
@@ -116,7 +116,7 @@ Later layers override conflicting earlier flags but keep non-conflicting flags. 
 
 Lemonade-managed process arguments cannot be set in this file or in `vllm_args`: `--model`, `--served-model-name`, `--host`, `--port`, `--max-model-len`, and `--enable-prefix-caching`.
 
-`--enforce-eager` is a special case: it is normally managed by Lemonade (discrete-HBM GPUs such as MI300X default to CUDA-graph capture, while shared-memory GPUs default to eager), but you **may** pass `--enforce-eager` in `vllm_args` as a managed *intent* to force eager mode on a discrete-HBM GPU whose graph capture misbehaves. Lemonade detects it and re-emits it exactly once (it is not passed through as a raw duplicate flag).
+`--enforce-eager` is a special case: it is normally managed by Lemonade (discrete-HBM GPUs such as MI300X default to CUDA-graph capture, while shared-memory GPUs default to eager), but you **may** pass `--enforce-eager` in `vllm_args` as a managed *intent* to force eager mode on a discrete-HBM GPU — either when bringing up a newly-added / not-yet-fully-supported model, or when an existing model's CUDA-graph capture misbehaves. Lemonade detects it and re-emits it exactly once (it is not passed through as a raw duplicate flag).
 
 ## Speculative decoding (MTP)
 
