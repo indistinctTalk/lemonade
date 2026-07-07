@@ -281,9 +281,15 @@ InstallParams VLLMServer::get_install_params(const std::string& backend, const s
         }
 #ifdef __linux__
         // CDNA-dcgpu (gfx942) rides a different vLLM/ROCm wheel cadence than RDNA,
-        // so its release version is pinned per-arch and overrides the default pin.
+        // so its release version is pinned per-arch. The override replaces ONLY the
+        // builtin default base — a user who pinned vllm.rocm_bin=latest or an explicit
+        // tag keeps their chosen version (still arch-suffixed below); otherwise the
+        // per-arch override would silently clobber that choice on an MI300X host.
         std::string arch_override = SystemInfo::vllm_rocm_version_override(target_arch);
-        const std::string& effective_version = arch_override.empty() ? version : arch_override;
+        std::string default_pin = BackendUtils::get_backend_version("vllm", "rocm");
+        const bool on_builtin_default = version.empty() || version == default_pin;
+        const std::string& effective_version =
+            (!arch_override.empty() && on_builtin_default) ? arch_override : version;
         // One release per GPU target since 0.19.1: release tag is
         // {version}-{target_arch}, e.g. vllm0.20.1-rocm7.12.0-gfx1151.
         std::string release_tag = effective_version + "-" + target_arch;
