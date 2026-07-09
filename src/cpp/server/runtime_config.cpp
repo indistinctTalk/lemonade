@@ -489,7 +489,8 @@ json RuntimeConfig::recipe_options(const std::string& backend) const {
     return result;
 }
 
-void RuntimeConfig::validate(const std::string& key, const json& value) const {
+void RuntimeConfig::validate(const std::string& key, const json& value,
+                             bool allow_privileged_keys) const {
     if (key == "port") {
         if (!value.is_number_integer()) {
             throw std::invalid_argument("'port' must be an integer");
@@ -715,7 +716,7 @@ void RuntimeConfig::validate(const std::string& key, const json& value) const {
         }
         // Validate each sub-key
         for (auto& [sub_key, sub_value] : value.items()) {
-            validate_backend(key, sub_key, sub_value);
+            validate_backend(key, sub_key, sub_value, allow_privileged_keys);
         }
     } else {
         throw std::invalid_argument("Unknown config key: '" + key + "'");
@@ -723,14 +724,26 @@ void RuntimeConfig::validate(const std::string& key, const json& value) const {
 }
 
 void RuntimeConfig::validate_backend(const std::string& backend, const std::string& key,
-                                      const json& value) const {
+                                      const json& value, bool allow_privileged_keys) const {
+    // A backend's executable (*_bin) and command line (args/*_args) decide which
+    // process is spawned and how. Allowing an unauthenticated HTTP caller to set
+    // them turns any config write into local code execution, so they are rejected
+    // outright on the low-privilege surface rather than merely validated.
+    const bool is_bin_key = key.find("_bin") != std::string::npos;
+    const bool is_args_key = key == "args" || key.find("_args") != std::string::npos;
+    if (!allow_privileged_keys && (is_bin_key || is_args_key)) {
+        throw std::invalid_argument(
+            "'" + backend + "." + key + "' cannot be set via this endpoint; "
+            "edit config.json or use the 'lemonade config set' CLI instead");
+    }
+
     if (key == "backend") {
         if (!value.is_string()) {
             throw std::invalid_argument("'" + backend + "." + key + "' must be a string");
         }
         validate_backend_choice(backend, value.get<std::string>());
     }
-    else if (key == "args" || key.find("_args") != std::string::npos) {
+    else if (is_args_key) {
         if (!value.is_string()) {
             throw std::invalid_argument("'" + backend + "." + key + "' must be a string");
         }
@@ -740,7 +753,7 @@ void RuntimeConfig::validate_backend(const std::string& backend, const std::stri
             throw std::invalid_argument("'" + backend + "." + key + "' must be a string");
         }
     }
-    else if (key.find("_bin") != std::string::npos) {
+    else if (is_bin_key) {
         if (!value.is_string()) {
             throw std::invalid_argument("'" + backend + "." + key + "' must be a string");
         }
@@ -828,7 +841,8 @@ void RuntimeConfig::apply_changes(const json& changes, json& applied_diff) {
     }
 }
 
-json RuntimeConfig::set(const json& changes, ConfigSideEffectCallback side_effect_cb) {
+json RuntimeConfig::set(const json& changes, ConfigSideEffectCallback side_effect_cb,
+                        bool allow_privileged_keys) {
     if (!changes.is_object() || changes.empty()) {
         throw std::invalid_argument("Request body must be a non-empty JSON object");
     }
@@ -837,7 +851,7 @@ json RuntimeConfig::set(const json& changes, ConfigSideEffectCallback side_effec
 
     // Validate all keys before acquiring write lock
     for (auto& [key, value] : normalized_changes.items()) {
-        validate(key, value);
+        validate(key, value, allow_privileged_keys);
     }
 
     json applied_diff = json::object();

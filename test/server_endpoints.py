@@ -39,6 +39,7 @@ from utils.server_base import (
     run_server_tests,
     OpenAI,
     pull_model_with_retry,
+    _auth_headers,
 )
 from utils.test_models import (
     PORT,
@@ -4343,6 +4344,67 @@ class EndpointTests(ServerTestBase):
                         proc.kill()
                         proc.wait(timeout=10)
             shutil.rmtree(cache_dir, ignore_errors=True)
+
+    def test_040_params_rejects_backend_bin_override(self):
+        """SWSPLAT-24170: POST /params must not let a caller pick the backend
+        binary. Accepting *_bin here turns a config write into local RCE."""
+        for key in ("cpu_bin", "rocm_bin", "vulkan_bin"):
+            with self.subTest(key=key):
+                response = requests.post(
+                    f"{self.base_url}/params",
+                    json={"llamacpp": {key: "/bin/sh"}},
+                    headers=_auth_headers(),
+                    timeout=TIMEOUT_DEFAULT,
+                )
+                self.assertEqual(response.status_code, 400, response.text)
+
+    def test_041_params_rejects_backend_args_override(self):
+        """SWSPLAT-24170: POST /params must not let a caller inject backend
+        command-line arguments."""
+        for payload in (
+            {"llamacpp": {"args": "-c id"}},
+            {"llamacpp": {"llamacpp_args": "-c id"}},
+        ):
+            with self.subTest(payload=payload):
+                response = requests.post(
+                    f"{self.base_url}/params",
+                    json=payload,
+                    headers=_auth_headers(),
+                    timeout=TIMEOUT_DEFAULT,
+                )
+                self.assertEqual(response.status_code, 400, response.text)
+
+    def test_042_params_accepts_benign_key(self):
+        """POST /params still accepts non-privileged runtime options."""
+        response = requests.post(
+            f"{self.base_url}/params",
+            json={"ctx_size": 4096},
+            headers=_auth_headers(),
+            timeout=TIMEOUT_DEFAULT,
+        )
+        self.assertEqual(response.status_code, 200, response.text)
+
+    def test_043_cors_rejects_foreign_origin(self):
+        """SWSPLAT-24172: a cross-origin web page must not receive an
+        Access-Control-Allow-Origin header echoing its Origin."""
+        response = requests.get(
+            f"{self.base_url}/health",
+            headers={**_auth_headers(), "Origin": "http://evil.example"},
+            timeout=TIMEOUT_DEFAULT,
+        )
+        acao = response.headers.get("Access-Control-Allow-Origin")
+        self.assertNotIn(acao, ("*", "http://evil.example"))
+
+    def test_044_cors_allows_loopback_origin(self):
+        """SWSPLAT-24172: loopback origins (local tooling) are reflected so the
+        legitimate local clients keep working."""
+        origin = "http://localhost:12345"
+        response = requests.get(
+            f"{self.base_url}/health",
+            headers={**_auth_headers(), "Origin": origin},
+            timeout=TIMEOUT_DEFAULT,
+        )
+        self.assertEqual(response.headers.get("Access-Control-Allow-Origin"), origin)
 
 
 if __name__ == "__main__":
