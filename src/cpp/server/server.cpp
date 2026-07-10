@@ -1302,8 +1302,15 @@ bool Server::is_origin_allowed(const std::string& origin) const {
             host = host.substr(0, colon);
         }
     }
-    return host == "localhost" || host == "127.0.0.1" ||
-           host == "[::1]" || host == "::1";
+    if (host == "localhost" || host == "127.0.0.1" ||
+        host == "[::1]" || host == "::1") {
+        return true;
+    }
+
+    // Configured allowed origins (for non-loopback web-app access, e.g.,
+    // http://192.168.1.50:13305 when bound to --host 0.0.0.0).
+    const auto allowed_origins = config_->allowed_origins();
+    return std::find(allowed_origins.begin(), allowed_origins.end(), origin) != allowed_origins.end();
 }
 
 void Server::setup_cors(httplib::Server &web_server) {

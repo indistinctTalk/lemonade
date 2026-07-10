@@ -4452,6 +4452,44 @@ class EndpointTests(ServerTestBase):
             "Config changed despite disallowed origin",
         )
 
+    def test_046_cors_allows_configured_non_loopback_origin(self):
+        """SWSPLAT-24172: configured allowed_origins permit legitimate non-loopback
+        web-app access (e.g., http://192.168.1.50:13305 when bound to --host 0.0.0.0)
+        without reintroducing DNS-rebinding exposure."""
+        # Add a non-loopback origin to the allowed list
+        test_origin = "http://192.168.1.50:13305"
+        requests.post(
+            f"http://localhost:{PORT}/internal/set",
+            json={"allowed_origins": [test_origin]},
+            headers=_auth_headers(),
+            timeout=TIMEOUT_DEFAULT,
+        )
+
+        # Verify the origin is now accepted for POST requests
+        response = requests.post(
+            f"{self.base_url}/health",
+            headers={**_auth_headers(), "Origin": test_origin},
+            timeout=TIMEOUT_DEFAULT,
+        )
+        self.assertEqual(
+            response.status_code,
+            200,
+            f"Configured origin should be allowed, got {response.status_code}: {response.text}",
+        )
+        self.assertEqual(
+            response.headers.get("Access-Control-Allow-Origin"),
+            test_origin,
+            "CORS header should reflect configured origin",
+        )
+
+        # Clean up: remove the test origin
+        requests.post(
+            f"http://localhost:{PORT}/internal/set",
+            json={"allowed_origins": []},
+            headers=_auth_headers(),
+            timeout=TIMEOUT_DEFAULT,
+        )
+
 
 if __name__ == "__main__":
     run_server_tests(EndpointTests, "ENDPOINT TESTS")

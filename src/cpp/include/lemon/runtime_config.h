@@ -35,6 +35,7 @@ public:
     bool auto_evict() const;
     double auto_evict_threshold_pct() const;
     bool inhibit_suspend() const;
+    std::vector<std::string> allowed_origins() const;
 
     // Telemetry settings
     bool telemetry_enabled() const;

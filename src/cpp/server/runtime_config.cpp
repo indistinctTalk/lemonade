@@ -260,6 +260,19 @@ bool RuntimeConfig::inhibit_suspend() const {
     return true;
 }
 
+std::vector<std::string> RuntimeConfig::allowed_origins() const {
+    std::shared_lock lock(mutex_);
+    std::vector<std::string> origins;
+    if (config_.contains("allowed_origins") && config_["allowed_origins"].is_array()) {
+        for (const auto& item : config_["allowed_origins"]) {
+            if (item.is_string()) {
+                origins.push_back(item.get<std::string>());
+            }
+        }
+    }
+    return origins;
+}
+
 double RuntimeConfig::auto_evict_threshold_pct() const {
     std::shared_lock lock(mutex_);
     if (config_.contains("auto_evict_threshold_pct")) {
