@@ -4467,7 +4467,8 @@ class EndpointTests(ServerTestBase):
 
         # Verify the origin is now accepted for POST requests
         response = requests.post(
-            f"{self.base_url}/health",
+            f"{self.base_url}/params",
+            json={"model": "test"},
             headers={**_auth_headers(), "Origin": test_origin},
             timeout=TIMEOUT_DEFAULT,
         )
