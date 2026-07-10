@@ -723,6 +723,15 @@ void RuntimeConfig::validate(const std::string& key, const json& value,
                 }
             }
         }
+    } else if (key == "allowed_origins") {
+        if (!value.is_array()) {
+            throw std::invalid_argument("'allowed_origins' must be an array");
+        }
+        for (const auto& origin : value) {
+            if (!origin.is_string()) {
+                throw std::invalid_argument("'allowed_origins' array must contain only strings");
+            }
+        }
     } else if (is_backend_name(key)) {
         if (!value.is_object()) {
             throw std::invalid_argument("'" + key + "' must be an object");
