@@ -4406,6 +4406,52 @@ class EndpointTests(ServerTestBase):
         )
         self.assertEqual(response.headers.get("Access-Control-Allow-Origin"), origin)
 
+    def test_045_cors_blocks_simple_post_from_foreign_origin(self):
+        """SWSPLAT-24172 regression: a malicious web page can send a simple POST
+        (safelisted content-type like text/plain + JSON body) from a disallowed
+        origin without triggering a preflight. The browser hides the response,
+        but without server-side validation the handler still runs. Verify that
+        disallowed origins receive 403 server-side before the handler executes,
+        and that mutating endpoints (e.g. /internal/set) do not change state."""
+        # Read current config to establish baseline
+        config_before = requests.get(
+            f"http://localhost:{PORT}/internal/config",
+            headers=_auth_headers(),
+            timeout=TIMEOUT_DEFAULT,
+        ).json()
+
+        # Attempt a simple POST from evil.example with text/plain (safelisted,
+        # no preflight) carrying a JSON payload that would mutate state.
+        response = requests.post(
+            f"http://localhost:{PORT}/internal/set",
+            data='{"llamacpp": {"cpu_bin": "/bin/sh"}}',
+            headers={
+                **_auth_headers(),
+                "Origin": "http://evil.example",
+                "Content-Type": "text/plain",
+            },
+            timeout=TIMEOUT_DEFAULT,
+        )
+
+        # Server must reject the request server-side with 403
+        self.assertEqual(
+            response.status_code,
+            403,
+            f"Expected 403 for disallowed origin, got {response.status_code}: {response.text}",
+        )
+
+        # Config must remain unchanged
+        config_after = requests.get(
+            f"http://localhost:{PORT}/internal/config",
+            headers=_auth_headers(),
+            timeout=TIMEOUT_DEFAULT,
+        ).json()
+        self.assertEqual(
+            config_before,
+            config_after,
+            "Config changed despite disallowed origin",
+        )
+
 
 if __name__ == "__main__":
     run_server_tests(EndpointTests, "ENDPOINT TESTS")

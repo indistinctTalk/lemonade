@@ -542,6 +542,19 @@ httplib::Server::HandlerResponse Server::authenticate_request(const httplib::Req
 
     telemetry::g_current_auth_token = auth_token;
 
+    // Reject cross-origin requests from disallowed origins before dispatching to
+    // handlers. Without this server-side check, a malicious web page could still
+    // send a state-changing request with a safelisted content-type (text/plain +
+    // JSON body); the browser hides the response, but the server-side handler runs.
+    if (req.method != "OPTIONS" && req.has_header("Origin")) {
+        const std::string origin = req.get_header_value("Origin");
+        if (!is_origin_allowed(origin)) {
+            res.status = 403;
+            res.set_content("{\"error\": \"Origin not allowed\"}", "application/json");
+            return httplib::Server::HandlerResponse::Handled;
+        }
+    }
+
     if (is_internal_route) {
         // Internal routes require admin key authentication
         if (!admin_api_key_.empty() && req.method != "OPTIONS") {
