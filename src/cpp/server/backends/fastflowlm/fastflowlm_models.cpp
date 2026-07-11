@@ -361,7 +361,7 @@ void flm_download(const std::string& checkpoint, bool do_not_upgrade,
     std::string install_dir = get_flm_install_dir();
     if (!install_dir.empty()) {
 #ifdef _WIN32
-        _putenv("FLM_CONFIG_PATH=" + install_dir + "model_list.json");
+        _putenv(("FLM_CONFIG_PATH=" + install_dir + "model_list.json").c_str());
 #else
         setenv("FLM_CONFIG_PATH", (install_dir + "model_list.json").c_str(), 1);
 #endif
