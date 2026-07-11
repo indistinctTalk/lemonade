@@ -360,7 +360,11 @@ void flm_download(const std::string& checkpoint, bool do_not_upgrade,
     // Set FLM_CONFIG_PATH so the binary can locate model_list.json (v0.9.45+).
     std::string install_dir = get_flm_install_dir();
     if (!install_dir.empty()) {
+#ifdef _WIN32
+        _putenv("FLM_CONFIG_PATH=" + install_dir + "model_list.json");
+#else
         setenv("FLM_CONFIG_PATH", (install_dir + "model_list.json").c_str(), 1);
+#endif
     }
 
     // State for parsing FLM output
