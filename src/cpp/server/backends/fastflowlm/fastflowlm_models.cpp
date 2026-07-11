@@ -142,12 +142,12 @@ static std::string get_flm_install_dir() {
     }
 }
 
-// Prepend FLM_CONFIG_PATH=<install_dir> to a shell command string so the
-// flm-real binary can locate model_list.json (v0.9.45+ requirement).
+// Prepend FLM_CONFIG_PATH=<install_dir>/model_list.json to a shell command
+// string so the flm-real binary can locate model_list.json (v0.9.45+ requirement).
 static std::string flm_env_prefix(const std::string& command) {
     std::string dir = get_flm_install_dir();
     if (dir.empty()) return command;
-    return "FLM_CONFIG_PATH=" + dir + command;
+    return "FLM_CONFIG_PATH=" + dir + "model_list.json " + command;
 }
 
 std::string find_flm_binary() {
@@ -360,7 +360,7 @@ void flm_download(const std::string& checkpoint, bool do_not_upgrade,
     // Set FLM_CONFIG_PATH so the binary can locate model_list.json (v0.9.45+).
     std::string install_dir = get_flm_install_dir();
     if (!install_dir.empty()) {
-        setenv("FLM_CONFIG_PATH", install_dir.c_str(), 1);
+        setenv("FLM_CONFIG_PATH", (install_dir + "model_list.json").c_str(), 1);
     }
 
     // State for parsing FLM output
