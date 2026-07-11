@@ -124,6 +124,32 @@ int64_t read_flm_max_context_window(const ModelInfo& info) {
     return 0;
 }
 
+// Build the FLM install directory from the backend spec so callers can prepend
+// FLM_CONFIG_PATH when needed.  model_list.json lives at the root of the
+// extracted tarball (e.g. ~/.cache/lemonade/bin/flm/npu/model_list.json).
+static std::string get_flm_install_dir() {
+    try {
+        const backends::BackendSpec* spec = try_get_spec_for_recipe("flm");
+        if (!spec) return "";
+        std::string install_dir =
+            backends::BackendUtils::get_install_directory(spec->recipe, "npu");
+        if (!install_dir.empty() && install_dir.back() != '/') {
+            install_dir += '/';
+        }
+        return install_dir;
+    } catch (...) {
+        return "";
+    }
+}
+
+// Prepend FLM_CONFIG_PATH=<install_dir> to a shell command string so the
+// flm-real binary can locate model_list.json (v0.9.45+ requirement).
+static std::string flm_env_prefix(const std::string& command) {
+    std::string dir = get_flm_install_dir();
+    if (dir.empty()) return command;
+    return "FLM_CONFIG_PATH=" + dir + command;
+}
+
 std::string find_flm_binary() {
     try {
         const backends::BackendSpec* spec = try_get_spec_for_recipe("flm");
@@ -148,10 +174,10 @@ std::vector<std::string> flm_installed_checkpoints() {
 
     std::string output;
 #ifdef _WIN32
-    std::string command = "\"" + flm_path + "\" list --filter installed --quiet --json 2>NUL";
+    std::string command = flm_env_prefix("\"" + flm_path + "\" list --filter installed --quiet --json 2>NUL");
     int rc = lemon::utils::ProcessManager::run_command(command, output);
 #else
-    std::string command = "\"" + flm_path + "\" list --filter installed --quiet --json 2>/dev/null";
+    std::string command = flm_env_prefix("\"" + flm_path + "\" list --filter installed --quiet --json 2>/dev/null");
     FILE* pipe = popen(command.c_str(), "r");
     if (!pipe) {
         return installed_models;
@@ -222,7 +248,7 @@ std::vector<ModelInfo> flm_discover_models() {
 
     std::string output;
 #ifdef _WIN32
-    std::string command = "\"" + flm_path + "\" list --json";
+    std::string command = flm_env_prefix("\"" + flm_path + "\" list --json");
     int rc = lemon::utils::ProcessManager::run_command(command, output);
     LOG(INFO, "ModelManager") << "flm list --json exit code: " << rc
               << ", output length: " << output.size() << std::endl;
@@ -231,7 +257,7 @@ std::vector<ModelInfo> flm_discover_models() {
                   << "Output: " << output.substr(0, 200) << std::endl;
     }
 #else
-    std::string command = "\"" + flm_path + "\" list --json 2>/dev/null";
+    std::string command = flm_env_prefix("\"" + flm_path + "\" list --json 2>/dev/null");
     FILE* pipe = popen(command.c_str(), "r");
     if (!pipe) {
         return flm_models;
@@ -330,6 +356,13 @@ void flm_download(const std::string& checkpoint, bool do_not_upgrade,
         LOG(INFO, "ProcessManager") << " \"" << arg << "\"";
     }
     LOG(INFO, "ProcessManager") << std::endl;
+
+    // Set FLM_CONFIG_PATH so the binary can locate model_list.json (v0.9.45+).
+    std::string flm_dir = get_flm_install_dir();
+    if (!flm_dir.empty()) {
+        std::string env_val = "FLM_CONFIG_PATH=" + flm_dir;
+        setenv("FLM_CONFIG_PATH", env_val.c_str(), 1);
+    }
 
     // State for parsing FLM output
     int total_files = 0;
